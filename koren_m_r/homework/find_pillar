@@ -62,7 +62,7 @@ def polygons(list):
             distance_Top = get_disctance(Top_1, Top_2)
             distance_Bottom = get_disctance(Bottom_1, Bottom_2)
 
-            if 70 > distance_Bottom > 25 or 70 > distance_Top > 25:
+            if 70 > distance_Bottom > 10 or 70 > distance_Top > 10:
                 polygon = np.zeros(shape=(1, 4), dtype=int)
 
                 if Top_1[0][1] > Top_2[0][1]:
@@ -88,7 +88,7 @@ def polygons(list):
 def read_file():
     ints = []
     structure = []
-    f = open('img (3).txt')
+    f = open('img (25).txt')
     data = f.read()
     lines = data.split('\n')
     for line in lines:
@@ -122,9 +122,9 @@ def intersection(bb1_structure, bb2):
 
     return iou
 
-original = ndimage.imread("img (3).png", 0)
+original = ndimage.imread("img (25).png", 0)
 
-img = cv2.imread("img (3).png", cv2.IMREAD_GRAYSCALE)
+img = cv2.imread("img (25).png", cv2.IMREAD_GRAYSCALE)
 plt.imshow(img)
 plt.show()
 
@@ -134,10 +134,10 @@ sharped = sharpening(dst)
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 cl1 = clahe.apply(sharped)
 
-plt.imshow(cl1)
+plt.imshow(sharped)
 plt.show()
 
-gauss = ndimage.gaussian_filter1d(cl1, 10, axis=0)
+gauss = ndimage.gaussian_filter1d(sharped, 10, axis=0)
 
 plt.imshow(gauss)
 plt.show()
@@ -166,7 +166,8 @@ good = []
 for k in range(len(bboxes)):
     bbox_normal = list(bboxes[k][0][0]) + list(bboxes[k][2][0])
     a = intersection(markup, bbox_normal)
-    if a > 0.8:
+    print(a)
+    if a > 0.65:
         good.append(bboxes[k])
 
 cv2.drawContours(original, good, -1, (0, 255, 0), 2)
