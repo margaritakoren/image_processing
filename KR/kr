@@ -1,0 +1,75 @@
+import numpy as np
+import cv2
+import random as rnd
+from matplotlib import pyplot as plt
+
+image = np.zeros((384,384,3), np.uint8)
+
+coord_X = 0
+coord_Y = 0
+
+for i in range(0, 257, 128):
+	color = rnd.randint(0, 255)
+	for j in range(0, 257, 128):
+		cv2.rectangle(image,(i, j),(i + 128, j + 128),(color, color, color),-1)
+
+for i in range(0, 257, 128):
+	color = rnd.randint(0, 255)
+	cv2.circle(image,(i + 64, 64), 45, (color, color, color), -1)
+
+for i in range(0, 257, 128):
+	color = rnd.randint(0, 255)
+	cv2.rectangle(image,(i + 24, 152),(i + 104, 232),(color, color, color),-1)
+
+for i in range(0, 257, 128):
+	pts = np.array([[i + 64,288],[i + 32, 352],[i + 96, 352]], np.int32)
+	color = rnd.randint(0, 255)
+	cv2.polylines(image,[pts],True,(color, color, color))
+	cv2.fillConvexPoly(image, pts, (color, color, color))
+
+plt.title("Исходное изображение")
+plt.imshow(image)
+plt.show()
+
+cv2.imwrite("original.png", image)
+
+image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+img = image * 255 / 2
+
+kernel = np.array([[-1, 0, 1],
+                   [-1, 0, 1],
+                   [-1, 0, 1]])
+
+image_filtered_x = (cv2.filter2D(img, -1, kernel))
+image_filtered_x = (image_filtered_x/(2*image_filtered_x.max()) + 0.5)*255
+image_filtered_y = (cv2.filter2D(img, -1, kernel.T))
+image_filtered_y = (image_filtered_y/(2*image_filtered_y.max()) + 0.5)*255
+
+plt.title("По X")
+plt.imshow(image_filtered_x)
+plt.show()
+
+plt.title("По Y")
+plt.imshow(image_filtered_y)
+plt.show()
+
+image_filtered = (image_filtered_x**2 + image_filtered_y**2)**0.5
+image_filtered = (image_filtered - image_filtered.min())/(image_filtered.max() - image_filtered.min())*255
+
+plt.title("Модуль градиента")
+plt.imshow(image_filtered)
+plt.show()
+
+image_result = np.zeros((*img.shape, 3), dtype=np.uint8)
+image_result[:,:,0] = image_filtered
+image_result[:,:,1] = image_filtered_x
+image_result[:,:,2] = image_filtered_y
+
+final_res = cv2.cvtColor(image_result, cv2.COLOR_LAB2RGB)
+
+plt.title("Итоговый результат")
+plt.imshow(final_res)
+plt.show()
+
+cv2.imwrite("result.png", final_res)
