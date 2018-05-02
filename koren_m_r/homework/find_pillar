@@ -158,14 +158,14 @@ cv2.drawContours(original, bboxes, -1, (255, 0, 0), 2)
 plt.imshow(original)
 plt.show()
 
-hui = read_file()
+markup = read_file()
 print(bboxes)
 
 good = []
 
 for k in range(len(bboxes)):
     bbox_normal = list(bboxes[k][0][0]) + list(bboxes[k][2][0])
-    a = intersection(hui, bbox_normal)
+    a = intersection(markup, bbox_normal)
     if a > 0.8:
         good.append(bboxes[k])
 
