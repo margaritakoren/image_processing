@@ -1,0 +1,174 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.ndimage as ndimage
+import math
+
+
+def get_disctance(vector1, vector2):
+    dist = 0
+    dist = math.sqrt((vector1[0][0] - vector2[0][0]) ** 2 + (vector1[0][1] - vector2[0][1]) ** 2)
+    return dist
+
+
+def gamma_correction(img, correction):
+    img = img / 255.0
+    img = cv2.pow(img, correction)
+    return np.uint8(img * 255)
+
+
+def sharpening(imgIn):
+    kernel = np.zeros((9, 9), np.float32)
+    kernel[4, 4] = 2.0  # Identity, times two!
+
+    boxFilter = np.ones((9, 9), np.float32) / 81.0
+
+    kernel = kernel - boxFilter
+    custom = cv2.filter2D(imgIn, -1, kernel)
+    return custom
+
+
+def filter_contours(cnt_list):
+    list = []
+    new_list = []
+
+    for cnt in cnt_list:
+        line = np.zeros(shape=(2, 1, 2), dtype=int)
+        Top = np.array(cnt[cnt[:, :, 1].argmin()][0])
+        Bottom = np.array(cnt[cnt[:, :, 1].argmax()][0])
+        line[0] = Top
+        line[1] = Bottom
+
+        new_list.append(line)
+
+    for i in range(len(new_list)):
+        Top = new_list[i][0]
+        Bottom = new_list[i][1]
+        if get_disctance(Top, Bottom) >= 200:
+            list.append(new_list[i])
+    return list
+
+
+def polygons(list):
+    list_of_poly = []
+
+    for i in range(len(list) - 1):
+        Top_1 = list[i][0]
+        Bottom_1 = list[i][1]
+        for j in range(1, len(list)):
+            Top_2 = list[j][0]
+            Bottom_2 = list[j][1]
+
+            distance_Top = get_disctance(Top_1, Top_2)
+            distance_Bottom = get_disctance(Bottom_1, Bottom_2)
+
+            if 70 > distance_Bottom > 25 or 70 > distance_Top > 25:
+                polygon = np.zeros(shape=(1, 4), dtype=int)
+
+                if Top_1[0][1] > Top_2[0][1]:
+                    Top_2[0][1] = Top_1[0][1]
+                else:
+                    Top_1[0][1] = Top_2[0][1]
+
+                if Bottom_1[0][1] > Bottom_2[0][1]:
+                    Bottom_2[0][1] = Bottom_1[0][1]
+                else:
+                    Bottom_1[0][1] = Bottom_2[0][1]
+
+                # определяем правило обхода: ЛВ угол, ПВ угол, ПН угол, ЛН угол
+                if Top_1[0][0] > Top_2[0][0]:
+                    Top_1[0][0], Top_2[0][0] = Top_2[0][0], Top_1[0][0]
+                    Bottom_1[0][0], Bottom_2[0][0] = Bottom_2[0][0], Bottom_1[0][0]
+
+                polygon = np.append([Top_1, Top_2], [Bottom_2, Bottom_1], axis=0)
+                list_of_poly.append(polygon)
+    return list_of_poly
+
+
+def read_file():
+    ints = []
+    structure = []
+    f = open('img (3).txt')
+    data = f.read()
+    lines = data.split('\n')
+    for line in lines:
+        line = line.split(' ')
+        ints = []
+        for n in line:
+            ints.append(int(n))
+        structure.append(ints)
+    return structure
+
+
+def intersection(bb1_structure, bb2):
+    good_contours = []
+    for i in range(len(bb1_structure)):
+        x_top_left = max(bb1_structure[i][0], bb2[0])
+        y_top_left = max(bb1_structure[i][1], bb2[1])
+        x_bottom_right = min(bb1_structure[i][2], bb2[2])
+        y_bottom_right = min(bb1_structure[i][3], bb2[3])
+
+        if x_bottom_right < x_top_left or y_bottom_right < y_top_left:
+            return 0.0
+
+        intersection_area = (x_bottom_right - x_top_left) * (y_bottom_right - y_top_left)
+
+        bb1_area = (bb1_structure[i][2] - bb1_structure[i][0]) * (bb1_structure[i][3] - bb1_structure[i][1])
+        bb2_area = (bb2[2] - bb2[0]) * (bb2[3] - bb2[1])
+
+        iou = intersection_area / float(bb1_area + bb2_area - intersection_area)
+        assert iou >= 0.0
+        assert iou <= 1.0
+
+    return iou
+
+original = ndimage.imread("img (3).png", 0)
+
+img = cv2.imread("img (3).png", cv2.IMREAD_GRAYSCALE)
+plt.imshow(img)
+plt.show()
+
+dst = gamma_correction(img, 0.2)
+sharped = sharpening(dst)
+
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+cl1 = clahe.apply(sharped)
+
+plt.imshow(cl1)
+plt.show()
+
+gauss = ndimage.gaussian_filter1d(cl1, 10, axis=0)
+
+plt.imshow(gauss)
+plt.show()
+
+edged = cv2.Canny(gauss, 30, 100)
+
+im2, contours, hierarchy = cv2.findContours(edged, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+filtered_contours = filter_contours(contours)
+
+# cv2.drawContours(original, filtered_contours, -1, (0, 255, 0), 2)
+# plt.imshow(original)
+# plt.show()
+
+bboxes = polygons(filtered_contours)
+
+cv2.drawContours(original, bboxes, -1, (255, 0, 0), 2)
+plt.imshow(original)
+plt.show()
+
+hui = read_file()
+print(bboxes)
+
+good = []
+
+for k in range(len(bboxes)):
+    bbox_normal = list(bboxes[k][0][0]) + list(bboxes[k][2][0])
+    a = intersection(hui, bbox_normal)
+    if a > 0.8:
+        good.append(bboxes[k])
+
+cv2.drawContours(original, good, -1, (0, 255, 0), 2)
+plt.imshow(original)
+plt.show()
