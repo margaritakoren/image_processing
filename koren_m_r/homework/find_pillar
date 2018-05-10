@@ -88,7 +88,7 @@ def polygons(list):
 def read_file():
     ints = []
     structure = []
-    f = open('img (25).txt')
+    f = open('img (3).txt')
     data = f.read()
     lines = data.split('\n')
     for line in lines:
@@ -109,7 +109,7 @@ def intersection(bb1_structure, bb2):
         y_bottom_right = min(bb1_structure[i][3], bb2[3])
 
         if x_bottom_right < x_top_left or y_bottom_right < y_top_left:
-            return 0.0
+            iou = 0.0
 
         intersection_area = (x_bottom_right - x_top_left) * (y_bottom_right - y_top_left)
 
@@ -117,14 +117,13 @@ def intersection(bb1_structure, bb2):
         bb2_area = (bb2[2] - bb2[0]) * (bb2[3] - bb2[1])
 
         iou = intersection_area / float(bb1_area + bb2_area - intersection_area)
-        assert iou >= 0.0
-        assert iou <= 1.0
 
     return iou
 
-original = ndimage.imread("img (25).png", 0)
 
-img = cv2.imread("img (25).png", cv2.IMREAD_GRAYSCALE)
+original = ndimage.imread("img (3).png", 0)
+
+img = cv2.imread("img (3).png", cv2.IMREAD_GRAYSCALE)
 plt.imshow(img)
 plt.show()
 
@@ -159,16 +158,30 @@ plt.imshow(original)
 plt.show()
 
 markup = read_file()
-print(bboxes)
 
 good = []
+good_boxes_inters = []
 
 for k in range(len(bboxes)):
     bbox_normal = list(bboxes[k][0][0]) + list(bboxes[k][2][0])
     a = intersection(markup, bbox_normal)
-    print(a)
     if a > 0.65:
         good.append(bboxes[k])
+        if a not in good_boxes_inters:
+            good_boxes_inters.append(a)
+
+
+# print(good_boxes_inters)
+true_positive = len(good_boxes_inters)
+false_positive = len(bbox_normal) - len(good_boxes_inters)
+false_negative = len(markup) - len(good_boxes_inters)
+
+print('True =', true_positive, 'False =', false_positive)
+
+precision = true_positive / (true_positive + false_positive)
+recall = true_positive / (true_positive + false_negative)
+
+print('Precision = ', precision, 'Recall = ', recall)
 
 cv2.drawContours(original, good, -1, (0, 255, 0), 2)
 plt.imshow(original)
